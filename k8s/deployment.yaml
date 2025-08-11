@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: __APP__
+  namespace: __NS__
+  labels:
+    app: __APP__
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: __APP__
+  template:
+    metadata:
+      labels:
+        app: __APP__
+    spec:
+      containers:
+        - name: __APP__
+          image: __IMAGE__
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
