@@ -47,21 +47,24 @@ pipeline {
 
     stage('Deploy to EKS (staging)') {
       steps {
-        withKubeConfig([credentialsId: 'kubeconfig-staging']) {
-          sh '''
-            set -e
+        withAWS(credentials: 'aws-creds', region: env.AWS_REGION) {   // ensures aws-iam auth works
+          withCredentials([file(credentialsId: 'kubeconfig-staging', variable: 'KUBECFG')]) {
+            sh '''
+              set -e
+              export KUBECONFIG="$KUBECFG"
     
-            kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+              kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
     
-            sed -e "s|__IMAGE__|${IMAGE}:${BUILD_NUMBER}|g" \
-                -e "s|__APP__|${APP_NAME}|g" \
-                -e "s|__NS__|${K8S_NAMESPACE}|g" k8s/deployment.yaml | kubectl apply -f -
+              sed -e "s|__IMAGE__|${IMAGE}:${BUILD_NUMBER}|g" \
+                  -e "s|__APP__|${APP_NAME}|g" \
+                  -e "s|__NS__|${K8S_NAMESPACE}|g" k8s/deployment.yaml | kubectl apply -f -
     
-            sed -e "s|__APP__|${APP_NAME}|g" \
-                -e "s|__NS__|${K8S_NAMESPACE}|g" k8s/service.yaml | kubectl apply -f -
+              sed -e "s|__APP__|${APP_NAME}|g" \
+                  -e "s|__NS__|${K8S_NAMESPACE}|g" k8s/service.yaml | kubectl apply -f -
     
-            kubectl -n ${K8S_NAMESPACE} rollout status deploy/${APP_NAME} --timeout=120s
-          '''
+              kubectl -n ${K8S_NAMESPACE} rollout status deploy/${APP_NAME} --timeout=120s
+            '''
+          }
         }
       }
     }
