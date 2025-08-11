@@ -47,7 +47,7 @@ pipeline {
 
     stage('Deploy to EKS (staging)') {
       steps {
-        withKubeConfig([credentialsId: 'kubeconfig-staging']) {
+        withKubeConfig([credentialsId: 'kztest-staging']) {
           sh '''
             set -e
     
