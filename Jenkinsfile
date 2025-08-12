@@ -98,12 +98,12 @@ pipeline {
     
               sed -e "s|__IMAGE__|${IMAGE}:${BUILD_NUMBER}|g" \
                   -e "s|__APP__|${APP_NAME}|g" \
-                  -e "s|__NS__|${K8S_NAMESPACE}|g" k8s/deployment.yaml | kubectl apply -f -
+                  -e "s|__NS__|${PROD_NAMESPACE}|g" k8s/deployment.yaml | kubectl apply -f -
     
               sed -e "s|__APP__|${APP_NAME}|g" \
-                  -e "s|__NS__|${K8S_NAMESPACE}|g" k8s/service.yaml | kubectl apply -f -
+                  -e "s|__NS__|${PROD_NAMESPACE}|g" k8s/service.yaml | kubectl apply -f -
     
-              kubectl -n ${K8S_NAMESPACE} rollout status deploy/${APP_NAME} --timeout=120s
+              kubectl -n ${PROD_NAMESPACE} rollout status deploy/${APP_NAME} --timeout=120s
             '''
           }
         }
