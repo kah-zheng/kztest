@@ -8,6 +8,8 @@ pipeline {
     IMAGE           = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
     K8S_NAMESPACE   = 'kztest-staging'        // TODO: set your target namespace
     APP_NAME        = 'kztest'                // TODO: app name (used by k8s objects)
+    PROD_NAMESPACE = 'kztest-prod'     // TODO: set your prod namespace
+    PROD_KUBECONFIG_ID = 'kubeconfig-staging'  // Jenkins credentials ID you just created
   }
 
   options {
@@ -75,6 +77,35 @@ pipeline {
               kubectl -n ${K8S_NAMESPACE} rollout status deploy/${APP_NAME} --timeout=120s
             '''
           }
+        }
+      }
+    }
+    stage('Approve promotion to PROD') {
+      steps {
+        timeout(time: 15, unit: 'MINUTES') {
+          input message: "Promote build ${BUILD_NUMBER} to PROD?", ok: 'Promote'
+        }
+      }
+    }
+    stage('Deploy to EKS (prod)') {
+      steps {
+        withKubeConfig([credentialsId: "${PROD_KUBECONFIG_ID}"]) {
+          sh '''
+            # Create namespace if not exists
+            kubectl create namespace ${PROD_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+    
+            # Apply Deployment with prod namespace + same image tag as staging
+            sed -e "s|__IMAGE__|${IMAGE}:${BUILD_NUMBER}|g" \
+                -e "s|__APP__|${APP_NAME}|g" \
+                -e "s|__NS__|${PROD_NAMESPACE}|g" k8s/deployment.yaml | kubectl apply -f -
+    
+            # Apply Service (ClusterIP by default)
+            sed -e "s|__APP__|${APP_NAME}|g" \
+                -e "s|__NS__|${PROD_NAMESPACE}|g" k8s/service.yaml | kubectl apply -f -
+    
+            # Wait for rollout
+            kubectl -n ${PROD_NAMESPACE} rollout status deploy/${APP_NAME} --timeout=180s
+          '''
         }
       }
     }
