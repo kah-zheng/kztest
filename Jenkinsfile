@@ -86,7 +86,7 @@ pipeline {
         }
       }
     }
-    stage('Deploy to EKS (staging)') {
+    stage('Deploy to EKS (Prod)') {
       steps {
         withAWS(credentials: 'aws-creds', region: env.AWS_REGION) {   // ensures aws-iam auth works
           withCredentials([file(credentialsId: 'kubeconfig-staging', variable: 'KUBECFG')]) {
