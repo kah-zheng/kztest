@@ -9,7 +9,6 @@ pipeline {
     K8S_NAMESPACE   = 'kztest-staging'        // TODO: set your target namespace
     APP_NAME        = 'kztest'                // TODO: app name (used by k8s objects)
     PROD_NAMESPACE = 'kztest-prod'     // TODO: set your prod namespace
-    PROD_KUBECONFIG_ID = 'kubeconfig-staging'  // Jenkins credentials ID you just created
   }
 
   options {
@@ -89,7 +88,7 @@ pipeline {
     }
     stage('Deploy to EKS (prod)') {
       steps {
-        withKubeConfig([credentialsId: "${PROD_KUBECONFIG_ID}"]) {
+        withKubeConfig([credentialsId: "kubeconfig-staging", variable: 'KUBECFG']) {
           sh '''
             # Create namespace if not exists
             kubectl create namespace ${PROD_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
