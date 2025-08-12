@@ -20,6 +20,10 @@ pipeline {
       steps { checkout scm }
     }
 
+    stage('Unit tests') {
+      steps { sh 'pip install -r app/requirements.txt && pytest -q || exit 1' }
+    }
+    
     stage('Build image') {
       steps {
         sh '''
