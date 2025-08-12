@@ -101,7 +101,7 @@ pipeline {
                   -e "s|__NS__|${PROD_NAMESPACE}|g" k8s/deployment.yaml | kubectl apply -f -
     
               sed -e "s|__APP__|${APP_NAME}|g" \
-                  -e "s|__NS__|${PROD_NAMESPACE}|g" k8s/service.yaml | kubectl apply -f -
+                  -e "s|__NS__|${PROD_NAMESPACE}|g" k8s/service-prod.yaml | kubectl apply -f -
     
               kubectl -n ${PROD_NAMESPACE} rollout status deploy/${APP_NAME} --timeout=120s
             '''
