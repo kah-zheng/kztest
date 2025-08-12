@@ -100,29 +100,32 @@ pipeline {
     // ----- PROD via GitOps: Jenkins commits the new image tag; Argo CD syncs -----
     stage('Promote via Argo CD (GitOps)') {
       steps {
-        // Add your GitOps repo SSH key in Jenkins as type: "SSH Username with private key"
-        // credentialsId must match below (e.g., 'gitops-deploy-key')
         withCredentials([sshUserPrivateKey(credentialsId: 'gitops-deploy-key', keyFileVariable: 'GIT_SSH_KEY', usernameVariable: 'GIT_USER')]) {
           sh '''
             set -euo pipefail
             rm -rf gitops && mkdir -p gitops
             cd gitops
-
+    
+            # Prepare SSH and trust GitHub host key
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+            # Fetch GitHub host keys and add to known_hosts (hashing with -H)
+            ssh-keyscan -T 10 -t rsa,ecdsa,ed25519 github.com >> ~/.ssh/known_hosts
+            chmod 644 ~/.ssh/known_hosts
+    
             eval $(ssh-agent -s)
             ssh-add "$GIT_SSH_KEY"
-
+    
             git clone -b "${GITOPS_BRANCH}" "${GITOPS_REPO_URL}" .
             git config user.name "jenkins-bot"
             git config user.email "ci@example.com"
-
-            # Replace ONLY the placeholder "$IMAGE" in the prod overlay kustomization
-            # This expects your envs/prod/kustomization.yaml to contain: "value: $IMAGE"
-            # We escape the $ for sed so the search matches literally "$IMAGE".
+    
+            # Update prod overlay to the new ECR tag
             sed -i "s|value: \\$IMAGE|value: ${IMAGE}:${BUILD_NUMBER}|g" "${GITOPS_PATH_PROD}/kustomization.yaml"
-
+    
             echo "----- Diff -----"
             git --no-pager diff -- "${GITOPS_PATH_PROD}/kustomization.yaml" || true
-
+    
             git add "${GITOPS_PATH_PROD}/kustomization.yaml"
             git commit -m "promote ${APP_NAME}:${BUILD_NUMBER} (ECR) to prod"
             git push origin "${GITOPS_BRANCH}"
@@ -130,6 +133,7 @@ pipeline {
         }
       }
     }
+
 
     // If you previously had a direct "Deploy to EKS (Prod)" stage, it's no longer needed.
     // Argo CD will detect the commit and sync the new image to the cluster.
