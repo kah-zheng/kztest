@@ -21,9 +21,15 @@ pipeline {
     }
 
     stage('Unit tests') {
-      steps { sh 'pip install -r app/requirements.txt && pytest -q || exit 1' }
-    }
-    
+      steps {
+        sh '''
+          export PYTHONPATH="$WORKSPACE"
+          pip install -r app/requirements.txt
+          pytest -q
+        '''
+      }
+    }    
+
     stage('Build image') {
       steps {
         sh '''
