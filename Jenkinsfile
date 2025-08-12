@@ -106,43 +106,33 @@ pipeline {
             rm -rf gitops && mkdir -p gitops
             cd gitops
     
-            # SSH setup
+            # Trust GitHub host key
             mkdir -p ~/.ssh && chmod 700 ~/.ssh
             ssh-keyscan -T 10 -t rsa,ecdsa,ed25519 github.com >> ~/.ssh/known_hosts
             chmod 644 ~/.ssh/known_hosts
+    
             eval $(ssh-agent -s)
             ssh-add "$GIT_SSH_KEY"
     
-            # Clone GitOps repo/branch
+            # Clone GitOps repo
             git clone -b "${GITOPS_BRANCH}" "${GITOPS_REPO_URL}" .
             git config user.name "jenkins-bot"
             git config user.email "ci@example.com"
     
             TARGET_FILE="${GITOPS_PATH_PROD}/kustomization.yaml"
             TARGET_IMAGE="${IMAGE}:${BUILD_NUMBER}"
-            TARGET_REPO="${IMAGE}"   # 405937588543.dkr.ecr.ap-southeast-1.amazonaws.com/kztest
     
-            echo "Current value line(s):"
-            grep -nE "value:|images:|newTag:" "$TARGET_FILE" || true
+            echo "Current value lines in ${TARGET_FILE}:"
+            grep -nE "^[[:space:]]*value:[[:space:]]" "$TARGET_FILE" || true
     
-            # 1) If file already has the exact target image, do nothing
-            if grep -q "value: ${TARGET_IMAGE}$" "$TARGET_FILE"; then
-              echo "No change needed: ${TARGET_IMAGE} already set."
-            else
-              # 2) Try replacing literal placeholder: value: $IMAGE
-              if grep -q "value: \\$IMAGE$" "$TARGET_FILE"; then
-                sed -i "s|value: \\$IMAGE|value: ${TARGET_IMAGE}|g" "$TARGET_FILE"
-              else
-                # 3) Replace an existing value line for this repo (any tag) -> set to TARGET_IMAGE
-                #    Matches: value: <account>.dkr.ecr.<region>.amazonaws.com/kztest:<anytag>
-                sed -E -i "s|^([[:space:]]*value:[[:space:]]*)${TARGET_REPO}:[^\"'[:space:]]+|\\1${TARGET_IMAGE}|g" "$TARGET_FILE"
-              fi
-            fi
+            # Replace ANY existing 'value:' line with the new image:tag
+            # (Keeps indentation at 8 spaces used in your file)
+            sed -E -i "s|^[[:space:]]*value:[[:space:]].*|        value: ${TARGET_IMAGE}|" "$TARGET_FILE"
     
             echo "----- Diff (if any) -----"
             git --no-pager diff -- "$TARGET_FILE" || true
     
-            # Commit only if there are changes
+            # Commit only if changed
             if ! git diff --quiet -- "$TARGET_FILE"; then
               git add "$TARGET_FILE"
               git commit -m "promote ${APP_NAME}:${BUILD_NUMBER} (ECR) to prod"
